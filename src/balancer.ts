@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { RPC, defaultRPC, Request, Config, defaultConfig } from "./types";
 import { batchRequest } from "./batchRequest";
+import { saveToRPCVault } from "./vault";
 
 export class Balancer {
   public rpcs: RPC[] = [];
@@ -12,6 +13,14 @@ export class Balancer {
     this.rpcs = rpcs;
     this.config = cache ?? defaultConfig();
   }
+
+  private refreshRpc = (rpc: RPC) => {
+    const index = this.rpcs.findIndex(
+      (x) => x.endpointURL.toLowerCase() === rpc.endpointURL.toLowerCase()
+    );
+
+    this.rpcs[index] = rpc;
+  };
 
   nextRPC(): RPC {
     let notDownRpcs = this.rpcs.filter((rpc) => !rpc.isDown);
@@ -53,6 +62,60 @@ export class Balancer {
 
       console.log("finished health check");
     });
+  }
+
+  async request(request: Request): Promise<Request> {
+    try {
+      const rpc = this.nextRPC();
+
+      let response = await batchRequest([rpc], request);
+      let previousRPCs: any = {};
+
+      while (response[0].error) {
+        const rpc = this.nextRPC();
+
+        if (previousRPCs[rpc.endpointURL]) continue;
+
+        response = await batchRequest([rpc], request);
+
+        previousRPCs[response[0].rpc.url] = true;
+
+        const newRPC = {
+          ...response[0].rpc,
+        } as RPC;
+
+        this.refreshRpc(newRPC);
+      }
+
+      this.refreshRpc(response[0].rpc);
+
+      let success = false;
+      while (!success) {
+        try {
+          await saveToRPCVault(this.rpcs);
+          success = true;
+        } catch (e) {
+          success = false;
+        }
+      }
+
+      if (response[0].response) {
+        return response[0].response;
+      } else {
+        const newRPC = {
+          ...response[0].rpc,
+        } as RPC;
+
+        this.refreshRpc(newRPC);
+        throw response[0].error;
+      }
+    } catch (e) {
+      throw {
+        jsonrpc: "2.0",
+        error: { code: -32042, message: "Method not supported" },
+        id: "1",
+      };
+    }
   }
 
   async defaultRequest(): Promise<{ rpc: RPC; result?: any; error?: any }[]> {
