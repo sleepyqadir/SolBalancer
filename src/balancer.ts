@@ -1,7 +1,8 @@
 import cron from "node-cron";
 import { Config, defaultConfig } from "./types/config";
-import { request } from "./types/request";
+import { Request } from "./types/request";
 import { RPC, defaultRPC } from "./types/rpc";
+import { batchRequest } from "./batchRequest";
 
 export class Balancer {
   public rpcs: RPC[] = [];
@@ -31,8 +32,11 @@ export class Balancer {
   }
 
   checkRPCHealth() {
+    
     this.cronTask = cron.schedule("* * * * *", async () => {
-      console.log("starting health check");
+      
+        console.log("starting health check");
+
       const response = await this.defaultRequest();
 
       response.map((response) => {
@@ -56,13 +60,14 @@ export class Balancer {
   }
 
   async defaultRequest(): Promise<{ rpc: RPC; result?: any; error?: any }[]> {
-    let rpcRequest: request = {
+    let request: Request = {
       method: "getVersion",
       params: [],
       start: new Date(),
     };
 
-    // send the batch request here for the result
+    let result = await batchRequest(this.rpcs, request);
 
+    return result;
   }
 }
