@@ -36,7 +36,6 @@ export class Balancer {
   public checkRPCHealth(): void {
     this.cronTask = cron.schedule("* * * * *", async () => {
 
-
       const responses = await this.defaultRequest();
       responses.forEach((response) => {
         const rpc = this.rpcs.find(

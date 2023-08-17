@@ -1,6 +1,7 @@
 import { Request, RPC, Config } from "./types";
 import axios from "axios";
 import { readCacheFromRPCVault, saveCacheToRPCVault } from "./vault";
+import WebSocket from "ws";
 
 export const request = async (
   rpc: RPC,
@@ -57,17 +58,24 @@ export const request = async (
   }
 
   try {
-    const res = await axios({
-      url: rpc.endpointURL,
-      method: "POST",
-      data: {
-        method: request.method,
-        params: request.params ?? [],
-        jsonrpc: "2.0",
-        id: "1",
-      },
-      timeout: 5000,
-    });
+    let res;
+    if (rpc.endpointURL.includes("wss://")) {
+      res = await requestViaWebSocket(rpc.endpointURL);
+    } else {
+      res = await axios({
+        url: rpc.endpointURL,
+        method: "POST",
+        data: {
+          method: request.method,
+          params: request.params ?? [],
+          jsonrpc: "2.0",
+          id: "1",
+        },
+        timeout: 5000,
+      });
+    }
+
+    console.log({ res });
 
     const data = await res.data;
 
@@ -130,4 +138,27 @@ export const batchRequest = async (
     response: res.result,
     error: res.error,
   }));
+};
+
+const requestViaWebSocket = async (url: string): Promise<any> => {
+  const ws = new WebSocket(url);
+  return new Promise((resolve, reject) => {
+    ws.on("open", () => {
+      const subscribeRequest = {
+        data: {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "slotSubscribe",
+        },
+      };
+      resolve(subscribeRequest);
+      console.log("done!!!");
+    });
+    ws.on("error", (error) => {
+      reject(error);
+    });
+    ws.on("message", (data) => {
+      console.log("Received data:", data);
+    });
+  });
 };

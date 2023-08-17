@@ -8,6 +8,7 @@ const rpcUrls: string[] = [
   "https://solana-mainnet.g.alchemy.com/v2/demo",
   "https://rpc.ankr.com/solana",
   "https://try-rpc.mainnet.solana.blockdaemon.tech",
+  "wss://api.mainnet-beta.solana.com"
 ];
 
 let solBalancerPromise = SolBalancer.rpcProvider(rpcUrls);
