@@ -1,5 +1,4 @@
-import { Request } from "./types/request";
-import { RPC } from "./types/rpc";
+import { Request, RPC } from "./types";
 import axios from "axios";
 
 export const request = async (

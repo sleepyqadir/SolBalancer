@@ -1,7 +1,5 @@
 import cron from "node-cron";
-import { Config, defaultConfig } from "./types/config";
-import { Request } from "./types/request";
-import { RPC, defaultRPC } from "./types/rpc";
+import { RPC, defaultRPC, Request, Config, defaultConfig } from "./types";
 import { batchRequest } from "./batchRequest";
 
 export class Balancer {
@@ -32,10 +30,8 @@ export class Balancer {
   }
 
   checkRPCHealth() {
-    
     this.cronTask = cron.schedule("* * * * *", async () => {
-      
-        console.log("starting health check");
+      console.log("starting health check");
 
       const response = await this.defaultRequest();
 
