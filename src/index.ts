@@ -18,13 +18,9 @@ export class SolBalancer {
 
       const result = await batchRequest(rpcs, rpcRequest);
 
-      console.log({ result });
-
       const updatedRpcs = result
         .filter((x) => x.error === undefined)
         .map((x) => x.rpc);
-
-      console.log({ updatedRpcs });
 
       return new Balancer(updatedRpcs);
     } catch (e) {

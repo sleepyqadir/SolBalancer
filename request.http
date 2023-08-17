@@ -1,0 +1,19 @@
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+    "method": "getVersion",
+    "params": []
+}
+
+###
+
+
+POST http://localhost:9090 HTTP/1.1
+content-type: application/json
+
+{
+    "method": "getAccountInfo",
+    "params": ["Bx7SNaHfyeLZDeja9HPsn61XYjeForHtrTxLCb6cu62o"]
+}
+

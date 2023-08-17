@@ -35,7 +35,7 @@ export class Balancer {
 
   public checkRPCHealth(): void {
     this.cronTask = cron.schedule("* * * * *", async () => {
-      console.log("Starting health check");
+
 
       const responses = await this.defaultRequest();
       responses.forEach((response) => {
@@ -49,7 +49,6 @@ export class Balancer {
         }
       });
 
-      console.log("Finished health check");
     });
   }
 
@@ -58,7 +57,6 @@ export class Balancer {
       let rpc = this.nextRPC();
       let response = await batchRequest([rpc], request);
 
-      console.log({ response });
 
       const triedRPCs: { [endpoint: string]: boolean } = {};
 

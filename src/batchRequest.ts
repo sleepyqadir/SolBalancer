@@ -44,8 +44,6 @@ export const request = async (
       }
     }
 
-    console.log("Match found:", isMatch, requestParams, cachedParams);
-
     if (isMatch) {
       rpc.totalResponses++;
       rpc.servedRequests++;
