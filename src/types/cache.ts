@@ -1,3 +1,3 @@
-import { RPC } from "./rpc";
+import { Request } from "./request";
 
-export type Cache = { [key: string]: RPC }
+export type Cache = { [key: string]: Request }

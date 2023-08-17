@@ -4,111 +4,78 @@ import { batchRequest } from "./batchRequest";
 import { saveToRPCVault } from "./vault";
 
 export class Balancer {
-  public rpcs: RPC[] = [];
-  public currentRPC: RPC = defaultRPC("");
-  public cronTask: cron.ScheduledTask | undefined = undefined;
-  public config: Config = defaultConfig();
+  private rpcs: RPC[];
+  private currentRPC: RPC;
+  private cronTask?: cron.ScheduledTask;
+  private config: Config;
 
   constructor(rpcs: RPC[], cache?: Config) {
     this.rpcs = rpcs;
+    this.currentRPC = defaultRPC("");
     this.config = cache ?? defaultConfig();
   }
 
-  private refreshRpc = (rpc: RPC) => {
+  private refreshRpc(rpc: RPC): void {
     const index = this.rpcs.findIndex(
       (x) => x.endpointURL.toLowerCase() === rpc.endpointURL.toLowerCase()
     );
-
     this.rpcs[index] = rpc;
-  };
+  }
 
-  nextRPC(): RPC {
-    let notDownRpcs = this.rpcs.filter((rpc) => !rpc.isDown);
-
-    let sortedRpcs = notDownRpcs.sort(
+  private nextRPC(): RPC {
+    const notDownRpcs = this.rpcs.filter((rpc) => !rpc.isDown);
+    const sortedRpcs = notDownRpcs.sort(
       (a, b) => a.averageResponseTime - b.averageResponseTime
     );
 
-    if (sortedRpcs.length > 0) {
-      this.currentRPC = sortedRpcs[0];
-    } else {
-      this.currentRPC = this.rpcs[0];
-    }
+    this.currentRPC = sortedRpcs.length > 0 ? sortedRpcs[0] : this.rpcs[0];
 
     return this.currentRPC;
   }
 
-  checkRPCHealth() {
+  public checkRPCHealth(): void {
     this.cronTask = cron.schedule("* * * * *", async () => {
-      console.log("starting health check");
+      console.log("Starting health check");
 
-      const response = await this.defaultRequest();
-
-      response.map((response) => {
-        let index = this.rpcs.findIndex(
+      const responses = await this.defaultRequest();
+      responses.forEach((response) => {
+        const rpc = this.rpcs.find(
           (x) =>
             x.endpointURL.toLowerCase() ===
             response.rpc.endpointURL.toLowerCase()
         );
-
-        if (response.error && !response.result) {
-          this.rpcs[index].isDown = true;
-        }
-
-        if (response.result && !response.error) {
-          this.rpcs[index].isDown = true;
+        if (rpc) {
+          rpc.isDown = response.error ? true : false;
         }
       });
 
-      console.log("finished health check");
+      console.log("Finished health check");
     });
   }
 
-  async request(request: Request): Promise<Request> {
+  public async request(request: Request): Promise<Request> {
     try {
-      const rpc = this.nextRPC();
-
+      let rpc = this.nextRPC();
       let response = await batchRequest([rpc], request);
-      let previousRPCs: any = {};
+
+      console.log({ response });
+
+      const triedRPCs: { [endpoint: string]: boolean } = {};
 
       while (response[0].error) {
-        const rpc = this.nextRPC();
+        rpc = this.nextRPC();
 
-        if (previousRPCs[rpc.endpointURL]) continue;
+        if (triedRPCs[rpc.endpointURL]) continue;
 
         response = await batchRequest([rpc], request);
-
-        previousRPCs[response[0].rpc.url] = true;
-
-        const newRPC = {
-          ...response[0].rpc,
-        } as RPC;
-
-        this.refreshRpc(newRPC);
+        triedRPCs[response[0].rpc.endpointURL] = true;
+        this.refreshRpc(response[0].rpc);
       }
 
       this.refreshRpc(response[0].rpc);
+      await saveToRPCVault(this.rpcs);
 
-      let success = false;
-      while (!success) {
-        try {
-          await saveToRPCVault(this.rpcs);
-          success = true;
-        } catch (e) {
-          success = false;
-        }
-      }
-
-      if (response[0].response) {
-        return response[0].response;
-      } else {
-        const newRPC = {
-          ...response[0].rpc,
-        } as RPC;
-
-        this.refreshRpc(newRPC);
-        throw response[0].error;
-      }
+      return response[0].response || Promise.reject(response[0].error);
     } catch (e) {
       throw {
         jsonrpc: "2.0",
@@ -118,15 +85,15 @@ export class Balancer {
     }
   }
 
-  async defaultRequest(): Promise<{ rpc: RPC; result?: any; error?: any }[]> {
-    let request: Request = {
+  private async defaultRequest(): Promise<
+    { rpc: RPC; result?: any; error?: any }[]
+  > {
+    const request: Request = {
       method: "getVersion",
       params: [],
       start: new Date(),
     };
 
-    let result = await batchRequest(this.rpcs, request);
-
-    return result;
+    return await batchRequest(this.rpcs, request);
   }
 }

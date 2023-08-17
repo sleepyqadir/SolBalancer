@@ -6,9 +6,14 @@ const PORT: string | number = process.env.PORT ?? 9090;
 const app: Express = express();
 app.use(express.json());
 
-const rpcUrls: string[] = ["https://api.mainnet-beta.solana.com"];
+const rpcUrls: string[] = [
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-mainnet.g.alchemy.com/v2/demo",
+  "https://rpc.ankr.com/solana",
+  "https://try-rpc.mainnet.solana.blockdaemon.tech"
+];
 
-let solBalancerPromise= SolBalancer.rpcProvider(rpcUrls);
+let solBalancerPromise = SolBalancer.rpcProvider(rpcUrls);
 
 app.post("/", async (req: Request, res: Response) => {
   try {
